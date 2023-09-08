@@ -1,0 +1,156 @@
+---
+title: "HapinessPrediction"
+output: word_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+```{r include=FALSE}
+library(tidyverse)
+library(caret)
+library(forecast)
+library(leaps)
+```
+
+```{r}
+hp_df <- read.csv("HapinessPrediction.csv", header = TRUE, stringsAsFactors = FALSE)
+head(hp_df)
+str(hp_df)
+colSums(is.na(hp_df))
+```
+
+
+```{r}
+hp_df<-hp_df[,-c(1,2,3)]
+set.seed(666)
+training_index<-sample(c(1:nrow(hp_df)),0.6*nrow(hp_df))
+train<-hp_df[training_index,]
+valid<-hp_df[-training_index,]
+dim(train)
+dim(valid)
+
+```
+
+
+```{r}
+library(forecast)
+library(caret)
+
+lm_full<-lm(Happiness.Score ~ . ,data=train)
+summary(lm_full)
+summ<-summary(lm_full)
+Coeff<-as.data.frame(coefficients(summ))
+Coeff<-Coeff[,-c(2,3)]
+Coeff[2]
+pred<-predict(lm_full,train)
+acc<-as.data.frame(accuracy(pred,train$Happiness.Score))
+acc<-as.data.frame(t(as.matrix(acc)))
+acc
+pred<-predict(lm_full,valid)
+acc<-as.data.frame(accuracy(pred,valid$Happiness.Score))
+acc<-as.data.frame(t(as.matrix(acc)))
+acc
+
+```
+
+## Exhaustive Search
+
+```{r}
+library(leaps)
+search<- regsubsets(Happiness.Score~ ., data = train, nbest = 1, nvmax = dim(train)[2],method = "exhaustive")
+sum <- summary(search)
+sum$which
+sum$rsq
+sum$adjr2
+```
+
+## Forward Selection
+
+```{r}
+intercept<-lm(Happiness.Score ~ 1, data=train)
+full<- lm(Happiness.Score ~ ., data=train)
+forward<- step(intercept,direction='forward', scope=formula(full),trace=0)
+summary(forward)
+```
+
+## Backward Elimination
+
+```{r}
+backward<-step(full,direction='backward', scope=formula(full),trace=0)
+summary(backward)
+```
+
+```{r}
+#Model-1 from Forward Selection
+lm_model1<-lm(formula = Happiness.Score ~ Economy..GDP.per.Capita. + Family + 
+    Health..Life.Expectancy. + Freedom + Trust..Government.Corruption., 
+    data = train)
+summary(lm_model1)
+summ<-summary(lm_model1)
+Coeff<-as.data.frame(coefficients(summ))
+Coeff<-Coeff[,-c(2,3)]
+Coeff
+pred<-predict(lm_model1,train)
+acc<-as.data.frame(accuracy(pred,train$Happiness.Score))
+acc<-as.data.frame(t(as.matrix(acc)))
+acc
+pred<-predict(lm_model1,valid)
+acc<-as.data.frame(accuracy(pred,valid$Happiness.Score))
+acc<-as.data.frame(t(as.matrix(acc)))
+acc
+```
+
+
+```{r}
+#Model-2 from Exhaustive Search
+lm_model2<-lm(formula = Happiness.Score ~ Economy..GDP.per.Capita. + Family + 
+    Health..Life.Expectancy. + Freedom, 
+    data = train)
+summary(lm_model2)
+summ<-summary(lm_model2)
+Coeff<-as.data.frame(coefficients(summ))
+Coeff<-Coeff[,-c(2,3)]
+Coeff
+pred<-predict(lm_model2,train)
+acc<-as.data.frame(accuracy(pred,train$Happiness.Score))
+acc<-as.data.frame(t(as.matrix(acc)))
+acc
+
+pred<-predict(lm_model2,valid)
+acc<-as.data.frame(accuracy(pred,valid$Happiness.Score))
+acc<-as.data.frame(t(as.matrix(acc)))
+acc
+```
+
+
+```{r}
+#Model-3 from  Exhaustive Search
+lm_model3<-lm(formula = Happiness.Score ~ Economy..GDP.per.Capita. + Family + Freedom, data = train)
+summary(lm_model3)
+summ<-summary(lm_model3)
+Coeff<-as.data.frame(coefficients(summ))
+Coeff<-Coeff[,-c(2,3)]
+Coeff
+pred<-predict(lm_model3,train)
+acc<-as.data.frame(accuracy(pred,train$Happiness.Score))
+acc<-as.data.frame(t(as.matrix(acc)))
+acc
+
+pred<-predict(lm_model3,valid)
+acc<-as.data.frame(accuracy(pred,valid$Happiness.Score))
+acc<-as.data.frame(t(as.matrix(acc)))
+acc
+```
+
+
+```{r}
+ggplot(train)+
+  geom_histogram(aes(lm_model1$residuals),bins=20,fill = "dodgerblue3", color = "black")+
+  labs(title = 'Histogram of Residuals', x = 'Residuals', y = 'Frequency')
+```
