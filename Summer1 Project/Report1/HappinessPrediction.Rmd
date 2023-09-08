@@ -1,0 +1,131 @@
+---
+title: "Data Visualization Report-1"
+output: word_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+hp_df <- read.csv("HapinessPrediction.csv", header = TRUE, stringsAsFactors = FALSE)
+head(hp_df)
+str(hp_df)
+colSums(is.na(hp_df))
+```
+
+```{r}
+library(ggplot2)
+ggplot(hp_df, aes(x=Happiness.Score)) +
+  geom_histogram(bins = 20, fill = "dodgerblue3", color = "black") +
+  xlab("Happiness Score") +
+  ylab("Frequency") +
+  ggtitle("Histogram of Happiness Scores in 2015")
+```
+
+The density plot is similar to a histogram, but instead of showing the frequency of observations in a particular bin, it shows the density of observations at different values of the variable. This means that the area under the curve of a density plot is always equal to 1.
+
+```{r}
+ggplot(hp_df, aes(x=Happiness.Score)) +
+  geom_density(fill = "#FF7F24", color = "black") +
+  xlab("Happiness Score") +
+  ylab("Density") +
+  ggtitle("Density Plot of Happiness Scores in 2015")
+```
+
+
+```{r}
+library(ggplot2)
+top_10_countries <- hp_df[order(hp_df$Happiness.Score, decreasing = TRUE),][1:10,]
+ggplot(top_10_countries, aes(x=reorder(Country, Happiness.Score), y=Happiness.Score,fill=Country)) +
+  geom_bar(stat="identity") +
+  geom_text(aes(label=Happiness.Score),color="black",size=5,position=position_stack(vjust=0.5))+
+  xlab("Country") +
+  ylab("Happiness Score") +
+  ggtitle("Top 10 Happiest Countries in 2015") +
+ theme(axis.text.x=element_text(angle=90,hjust=1))
+```
+
+```{r}
+library(tidyverse)
+top_countries_by_region <- hp_df %>% 
+                            group_by(Region) %>% 
+                            top_n(1, Happiness.Score)
+ggplot(top_countries_by_region, aes(x=Region, y=Happiness.Score, fill=Country)) +
+  geom_bar(stat="identity", position = "dodge") +
+  geom_text(aes(label=Happiness.Score),color="black",size=5,position=position_stack(vjust=0.5))+
+  xlab("Region") +
+  ylab("Happiness Score") +
+  ggtitle("Top Country in Each Region in 2015") +
+  theme(axis.text.x=element_text(angle=90,hjust=1))
+```
+
+```{r}
+ggplot(hp_df, aes(x=Economy..GDP.per.Capita., y=Happiness.Score)) +
+  geom_point(color = "#7FFF00", size = 2) +
+  xlab("Economy (GDP per Capita)") +
+  ylab("Happiness Score") +
+  ggtitle("Scatterplot of Economy vs Happiness Score in 2015")
+```
+```{r warning=FALSE}
+ggplot(data = hp_df, aes(x = Health..Life.Expectancy., y = Happiness.Score)) +
+  geom_point(size = 2, alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  ggtitle("Scatter Plot of Happiness Score by Health (Life Expectancy)") +
+  xlab("Health (Life Expectancy)") +
+  ylab("Happiness Score")
+
+```
+
+
+```{r}
+ggplot(hp_df, aes(x = Trust..Government.Corruption., y = Happiness.Score, group =1)) +
+  geom_line(colour="red") +
+  ggtitle("Line Plot of Happiness Score by Trust (Government Corruption)") +
+  xlab("Trust (Government Corruption)") +
+  ylab("Happiness Score")
+
+
+
+```
+
+
+```{r warning=FALSE}
+ggplot(hp_df, aes(x=Region, y=Happiness.Score, fill=Family)) +
+  geom_boxplot() +
+  xlab("Region") +
+  ylab("Happiness Score") +
+  ggtitle("Boxplot of Happiness Score by Region and Family in 2015")+
+  theme(axis.text.x=element_text(angle=90,hjust=1))
+```
+
+```{r}
+library(GGally)
+library(lattice)
+
+data_parallel <- hp_df[,c(4,6,7,8,9,10)] # exclude Standard error and last column
+
+ggparcoord(data_parallel, groupColumn = 2,
+           title = "Parallel Coordinate Plot of all variables in World Happiness Report",)
+
+
+
+
+```
+
+```{r}
+library(gplots)
+heatmap.2(cor(hp_df[,c(4,5,6,7,8,9,10)]), Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+ cellnote = round(cor(hp_df[,c(4,5,6,7,8,9,10)]),2), 
+ notecol = "black", key = FALSE, trace = 'none')
+```
+
+
+```{r}
+library(scatterplot3d)
+scatterplot3d(hp_df$Economy..GDP.per.Capita., hp_df$Family, hp_df$Happiness.Score,
+              xlab = "Economy (GDP per Capita)", ylab = "Family", zlab = "Happiness Score",
+              main = "3D Scatter Plot of Happiness Score by Economy and Family")
+
+```
