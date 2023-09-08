@@ -1,0 +1,182 @@
+---
+title: "Happiness Prediction Report-4"
+output: word_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r include=FALSE}
+library(tidyverse)
+library(caret)
+library(forecast)
+library(leaps)
+library(InformationValue)
+library(gains)
+library(gridExtra)
+library(MASS)
+library(neuralnet)
+```
+
+```{r}
+hp_df <- read.csv("HapinessPrediction.csv", header = TRUE, stringsAsFactors = FALSE)
+head(hp_df)
+str(hp_df)
+colSums(is.na(hp_df))
+```
+
+
+```{r}
+hp_df<- hp_df%>%
+  mutate(Happiness_cat= if_else(Happiness.Score > mean(hp_df$Happiness.Score) ,1, 0))
+hp_df
+hp_df<-hp_df[,-c(1,2,3,4)]
+set.seed(666)
+training_index<-sample(c(1:nrow(hp_df)),0.6*nrow(hp_df))
+train<-hp_df[training_index,]
+valid<-hp_df[-training_index,]
+dim(train)
+dim(valid)
+```
+##  Analysis: Neural Network
+
+## small level layer(2 neurons)
+
+```{r}
+small<-neuralnet(Happiness_cat ~ Economy..GDP.per.Capita. + Family + Freedom, data=train,linear.output = F,hidden =2,stepmax = 1e7)
+small$weights
+small$result.matrix
+
+##plot of network
+plot(small,rep = "best")
+small_pred<-compute(small,data.frame(train$Economy..GDP.per.Capita.,train$Family,train$Freedom))
+
+###confusion matrix
+Conf_matrix<-table(ifelse(small_pred$net.result>0.6,1,0),train[,7])
+Conf_matrix
+
+###accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+
+small_pred<-compute(small,data.frame(valid$Economy..GDP.per.Capita.,valid$Family,valid$Freedom))
+
+###confusion matrix
+Conf_matrix<-table(ifelse(small_pred$net.result>0.5,1,0),valid[,7])
+Conf_matrix
+
+###accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+```
+## medium level layer(5 neurons)
+
+```{r}
+medium<-neuralnet(Happiness_cat ~ Economy..GDP.per.Capita. + Family + Freedom, data=train,linear.output = F,hidden =5,stepmax = 1e7)
+medium$weights
+medium$result.matrix
+
+##plot of network
+plot(medium,rep = "best")
+medium_pred<-compute(medium,data.frame(train$Economy..GDP.per.Capita.,train$Family,train$Freedom))
+
+###confusion matrix
+Conf_matrix<-table(ifelse(medium_pred$net.result>0.6,1,0),train[,7])
+Conf_matrix
+
+###accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+
+medium_pred<-compute(medium,data.frame(valid$Economy..GDP.per.Capita.,valid$Family,valid$Freedom))
+
+###confusion matrix
+Conf_matrix<-table(ifelse(medium_pred$net.result>0.5,1,0),valid[,7])
+Conf_matrix
+
+###accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+```
+## high levl layer(10 neurons)
+
+```{r}
+large<-neuralnet(Happiness_cat ~ Economy..GDP.per.Capita. + Family + Freedom, data=train,linear.output = F,hidden =10,stepmax = 1e7)
+large$weights
+large$result.matrix
+
+##plot of network
+plot(large,rep = "best")
+large_pred<-compute(large,data.frame(train$Economy..GDP.per.Capita.,train$Family,train$Freedom))
+
+###confusion matrix
+Conf_matrix<-table(ifelse(large_pred$net.result>0.6,1,0),train[,7])
+Conf_matrix
+
+###accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+
+large_pred<-compute(large,data.frame(valid$Economy..GDP.per.Capita.,valid$Family,valid$Freedom))
+
+###confusion matrix
+Conf_matrix<-table(ifelse(large_pred$net.result>0.6,1,0),valid[,7])
+Conf_matrix
+
+###accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+```
+
+## scaled best model
+```{r}
+train1<-train
+valid1<-valid
+train1[,c(1,2,4)]<-scale(train[,c(1,2,4)])
+valid1[,c(1,2,4)]<-scale(valid[,c(1,2,4)])
+
+scale_large<-neuralnet(Happiness_cat ~ Economy..GDP.per.Capita. + Family + Freedom, data=train1,linear.output = F,hidden =10,stepmax = 1e7)
+scale_large$weights
+scale_large$result.matrix
+
+##plot of network
+plot(scale_large,rep = "best")
+scale_large_pred<-compute(scale_large,data.frame(train1$Economy..GDP.per.Capita.,train1$Family,train1$Freedom))
+
+###confusion matrix
+Conf_matrix<-table(ifelse(scale_large_pred$net.result>0.6,1,0),train1[,7])
+Conf_matrix
+
+###accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+
+scale_large_pred<-compute(scale_large,data.frame(valid1$Economy..GDP.per.Capita.,valid1$Family,valid1$Freedom))
+
+###confusion matrix
+Conf_matrix<-table(ifelse(scale_large_pred$net.result>0.6,1,0),valid1[,7])
+Conf_matrix
+
+###accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+
+```
+
+
+## ROC and gains lift chart for best model
+
+```{r}
+plotROC(valid$Happiness_cat,large_pred$net.result)
+###Gains lift Chart
+gain1<-gains(valid$Happiness_cat,large_pred$net.result,groups=10)
+names(gain1)
+data.frame(c(0,gain1$cume.pct.of.total*sum(valid$Happiness_cat)),c(0,gain1$cume.obs))
+plot(c(0,gain1$cume.pct.of.total*sum(valid$Happiness_cat))~c(0,gain1$cume.obs),type="l",ylab="cumulative",xlab="#cases",main="")
+lines(c(0,sum(valid$Happiness_cat))~c(0,dim(valid)[1]),lty=2)
+```
+
+
