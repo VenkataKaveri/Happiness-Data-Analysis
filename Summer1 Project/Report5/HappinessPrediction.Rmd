@@ -1,0 +1,168 @@
+---
+title: "Happiness Prediction Report-5"
+output: word_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r include=FALSE}
+library(rpart)
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(ipred)
+library(adabag)
+library(gains)
+```
+
+```{r}
+hp_df <- read.csv("HapinessPrediction.csv", header = TRUE, stringsAsFactors = FALSE)
+head(hp_df)
+str(hp_df)
+colSums(is.na(hp_df))
+```
+
+
+```{r}
+hp_df<- hp_df%>%
+  mutate(Happiness_cat= if_else(Happiness.Score > mean(hp_df$Happiness.Score) ,1, 0))
+hp_df
+hp_df<-hp_df[,-c(1,2,3,4)]
+set.seed(666)
+training_index<-sample(c(1:nrow(hp_df)),0.6*nrow(hp_df))
+train<-hp_df[training_index,]
+valid<-hp_df[-training_index,]
+dim(train)
+dim(valid)
+```
+
+## Classification Tree
+
+```{r}
+CF<-rpart( Happiness_cat~ ., data = train, method = "class",cp=0,minsplit = 2)
+printcp(CF)
+length(CF$frame$var[CF$frame$var == "<leaf>"])
+prp(CF, type = 1, extra = 1, split.font = 1, varlen=-10)
+
+tree_pred<-predict(CF,train,type="class")
+##confusion matrix
+Conf_matrix<-table(tree_pred,train$Happiness_cat)
+Conf_matrix
+##accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+
+tree_pred<-predict(CF,valid,type="class")
+##confusion matrix
+Conf_matrix<-table(tree_pred,valid$Happiness_cat)
+Conf_matrix
+##accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+```
+## Purning Tree
+
+```{r}
+PT<-prune(CF,cp =CF$cptable[which.min(CF$cptable[,"xerror"]),"CP"])
+PT
+length(PT$frame$var[PT$frame$var == "<leaf>"])
+prp(PT, type = 1, extra = 1, split.font = 1, varlen=-10)
+
+prune_tree_pred<-predict(PT,train,type="class")
+##confusion matrix
+Conf_matrix<-table(prune_tree_pred,train$Happiness_cat)
+Conf_matrix
+##accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+
+prune_tree_pred<-predict(PT,valid,type="class")
+##confusion matrix
+Conf_matrix<-table(prune_tree_pred,valid$Happiness_cat)
+Conf_matrix
+##accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+
+```
+
+## Random Forest
+
+```{r}
+RF<-randomForest(as.factor(Happiness_cat)~.,train,ntree = 500,  mtry = 4, nodesize = 5, importance = TRUE)
+varImpPlot(RF, type = 1)
+
+rand_pred<-predict(RF,train)
+##confusion matrix
+Conf_matrix<-table(rand_pred,train$Happiness_cat)
+Conf_matrix
+##accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+
+rand_pred<-predict(RF,valid)
+##confusion matrix
+Conf_matrix<-table(rand_pred,valid$Happiness_cat)
+Conf_matrix
+##accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+```
+## Bagging
+
+```{r}
+train$Happiness_cat<-as.factor(train$Happiness_cat)
+BAG<-bagging(Happiness_cat~.,train)
+
+bag_pred<-predict(BAG,train)
+##confusion matrix
+Conf_matrix<-table(bag_pred$class,train$Happiness_cat)
+Conf_matrix
+##accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+
+bag_pred<-predict(BAG,valid)
+##confusion matrix
+Conf_matrix<-table(bag_pred$class,valid$Happiness_cat)
+Conf_matrix
+##accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+```
+## Boosting
+
+```{r}
+BOOST<-bagging(Happiness_cat~.,train)
+
+boost_pred<-predict(BOOST,train)
+##confusion matrix
+Conf_matrix<-table(boost_pred$class,train$Happiness_cat)
+Conf_matrix
+##accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+
+boost_pred<-predict(BOOST,valid)
+##confusion matrix
+Conf_matrix<-table(boost_pred$class,valid$Happiness_cat)
+Conf_matrix
+##accuracy
+Accuracy<-sum(diag(Conf_matrix))/sum(Conf_matrix)
+Accuracy
+```
+
+## Best Model
+
+```{r}
+gain<-gains(valid$Happiness_cat,as.numeric(rand_pred)-1,groups=10)
+names(gain)
+plot(c(0,gain$cume.pct.of.total*sum(valid$Happiness_cat))~c(0,gain$cume.obs),type="l",ylab="Cumulative",xlab="#cases",main="")
+lines(c(0,sum(valid$Happiness_cat))~c(0,dim(valid)[1]),lty=2)
+
+```
