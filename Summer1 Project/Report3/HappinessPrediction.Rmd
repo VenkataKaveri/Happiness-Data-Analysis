@@ -1,0 +1,131 @@
+---
+title: "Happiness Prediction Report-3"
+output: word_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r include=FALSE}
+library(tidyverse)
+library(caret)
+library(forecast)
+library(leaps)
+library(InformationValue)
+library(gains)
+```
+
+```{r}
+hp_df <- read.csv("HapinessPrediction.csv", header = TRUE, stringsAsFactors = FALSE)
+head(hp_df)
+str(hp_df)
+colSums(is.na(hp_df))
+```
+
+
+```{r}
+hp_df<- hp_df%>%
+  mutate(Happiness_cat= if_else(Happiness.Score > mean(hp_df$Happiness.Score) ,1, 0))
+hp_df
+hp_df<-hp_df[,-c(1,2,3,4)]
+set.seed(666)
+training_index<-sample(c(1:nrow(hp_df)),0.6*nrow(hp_df))
+train<-hp_df[training_index,]
+valid<-hp_df[-training_index,]
+dim(train)
+dim(valid)
+```
+
+
+```{r}
+glm_full<-glm(Happiness_cat ~ .,train,family ="binomial")
+summary(glm_full)
+summ<-summary(glm_full)
+Coeff<-as.data.frame(coefficients(summ))
+Coeff<-Coeff[,-c(2,3)]
+Coeff
+pred<-predict(glm_full,train,Ttype="response")
+Conf<-table(if_else(pred>0.5,1,0),train$Happiness_cat)
+Conf
+pred<-predict(glm_full,valid,Ttype="response")
+Conf<-table(if_else(pred>0.5,1,0),valid$Happiness_cat)
+Conf
+plotROC(valid$Happiness_cat,pred)
+```
+
+
+```{r}
+glm_model1<-glm(formula = Happiness_cat ~ Economy..GDP.per.Capita. + Family + 
+    Health..Life.Expectancy. + Freedom + Trust..Government.Corruption., 
+    data = train,family ="binomial")
+summary(glm_model1)
+summ<-summary(glm_model1)
+Coeff<-as.data.frame(coefficients(summ))
+Coeff<-Coeff[,-c(2,3)]
+Coeff
+pred<-predict(glm_model1,train,Ttype="response")
+Conf<-table(if_else(pred>0.5,1,0),train$Happiness_cat)
+Conf
+pred<-predict(glm_model1,valid,Ttype="response")
+Conf<-table(if_else(pred>0.5,1,0),valid$Happiness_cat)
+Conf
+plotROC(valid$Happiness_cat,pred)
+
+```
+
+
+```{r}
+glm_model2<-glm(Happiness_cat ~ Economy..GDP.per.Capita. + Family + 
+    Health..Life.Expectancy. + Freedom,data=train,family ="binomial")
+summary(glm_model2)
+summ<-summary(glm_model2)
+Coeff<-as.data.frame(coefficients(summ))
+Coeff<-Coeff[,-c(2,3)]
+Coeff
+pred<-predict(glm_model2,train,Ttype="response")
+Conf<-table(if_else(pred>0.5,1,0),train$Happiness_cat)
+Conf
+pred<-predict(glm_model2,valid,Ttype="response")
+Conf<-table(if_else(pred>0.5,1,0),valid$Happiness_cat)
+Conf
+plotROC(valid$Happiness_cat,pred)
+```
+
+
+```{r}
+glm_model3<-glm(Happiness_cat ~ Economy..GDP.per.Capita. + Family + Freedom,train,family ="binomial")
+summary(glm_model3)
+summ<-summary(glm_model3)
+Coeff<-as.data.frame(coefficients(summ))
+Coeff<-Coeff[,-c(2,3)]
+Coeff
+pred<-predict(glm_model3,train,Ttype="response")
+Conf<-table(if_else(pred>0.5,1,0),train$Happiness_cat)
+Conf
+pred<-predict(glm_model3,valid,Ttype="response")
+Conf<-table(if_else(pred>0.5,1,0),valid$Happiness_cat)
+Conf
+plotROC(valid$Happiness_cat,pred)
+```
+
+
+```{r}
+pred<-predict(glm_model1,valid,Ttype="response")
+gain<-gains(valid$Happiness_cat,pred,groups=10)
+names(gain)
+plot(c(0,gain$cume.pct.of.total*sum(valid$Happiness_cat))~c(0,gain$cume.obs),type="l",ylab="Cumulative",xlab="#cases",main="")
+lines(c(0,sum(valid$Happiness_cat))~c(0,dim(valid)[1]),lty=2)
+
+```
+
+
+```{r}
+#Decile-wise lift chart
+heights<-gain$mean.resp/mean(valid$Happiness_cat)
+heights
+midpoints <- barplot(heights, names.arg = gain$depth, ylim = c(0,4),xlab = "Percentile", ylab = "Mean Response", main="Decile wise lift chart")
+text(midpoints, heights+0.5, labels=round(heights, 1),cex=0.8)
+```
